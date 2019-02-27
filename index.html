@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap-theme.min.css" integrity="sha384-6pzBo3FDv/PJ8r2KRkGHifhEocL+1X2rVCTTkUfGk7/0pbek5mMa1upzvWbrUbOZ" crossorigin="anonymous">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script> 
+    <script>
+        var RadarChart = {
+            draw: function(id, d, options){
+                var conf = {
+                    radius: 5,
+                    w: 600,
+                    h: 600,
+                    factor: 1,
+                    factorLegend: .85,
+                    levels: 3,
+                    maxValue: 0,
+                    radians: 2 * Math.PI,
+                    opacityArea: 0.5,
+                    ToRight: 5,
+                    TranslateX: 80,
+                    TranslateY: 30,
+                    ExtraWidthX: 100,
+                    ExtraWidthY: 100,
+                    color: d3.scaleOrdinal(d3.schemeCategory20b)
+                };
+
+                if('undefined' !== typeof options){
+                    for(var i in options){
+                        if('undefined' !== typeof options[i]){
+                            conf[i] = options[i];
+                            //console.log(conf[i])
+                        }
+                    }
+                }
+                conf.maxValue = Math.max(conf.maxValue, d3.max(d, function(i){return d3.max(i.map(function(o){return o.value;}))}));
+                var f = d3.format(".5f");
+                var allAxis = (d[0].map(function(i, j){return i.axis}));
+                var total = allAxis.length;
+                var radius = conf.factor*Math.min(conf.w/2, conf.h/2);
+                //var Format = d3.format('%');
+                d3.select(id).select("svg").remove();
+
+                var g = d3.select(id)
+                .append("svg")
+                .attr("width", conf.w+conf.ExtraWidthX)
+                .attr("height", conf.h+conf.ExtraWidthY)
+                .append("g")
+                .attr("transform", "translate(" + conf.TranslateX + "," + conf.TranslateY + ")");
+                ;
+
+                var tooltip;
+
+    //Circular segments
+    for(var j=0; j<conf.levels-1; j++){
+        var levelFactor = conf.factor*radius*((j+1)/conf.levels);
+        g.selectAll(".levels")
+        .data(allAxis)
+        .enter()
+        .append("svg:line")
+        .attr("x1", function(d, i){return levelFactor*(1-conf.factor*Math.sin(i*conf.radians/total));})
+        .attr("y1", function(d, i){return levelFactor*(1-conf.factor*Math.cos(i*conf.radians/total));})
+        .attr("x2", function(d, i){return levelFactor*(1-conf.factor*Math.sin((i+1)*conf.radians/total));})
+        .attr("y2", function(d, i){return levelFactor*(1-conf.factor*Math.cos((i+1)*conf.radians/total));})
+        .attr("class", "line")
+        .style("stroke", "grey")
+        .style("stroke-opacity", "0.75")
+        .style("stroke-width", "0.3px")
+        .attr("transform", "translate(" + (conf.w/2-levelFactor) + ", " + (conf.h/2-levelFactor) + ")");
+    }
+
+    //Text indicating at what % each level is
+    for(var j=0; j<conf.levels; j++){
+        var levelFactor = conf.factor*radius*((j+1)/conf.levels);
+        g.selectAll(".levels")
+                   .data([1]) //dummy data
+                   .enter()
+                   .append("svg:text")
+                   .attr("x", function(d){return levelFactor*(1-conf.factor*Math.sin(0));})
+                   .attr("y", function(d){return levelFactor*(1-conf.factor*Math.cos(0));})
+                   .attr("class", "legend")
+                   .style("font-size", "11px")
+                   .attr("transform", "translate(" + (conf.w/2-levelFactor + conf.ToRight) + ", " + (conf.h/2-levelFactor) + ")")
+                   .attr("fill", "#737373")
+                   .text((f((j+1)*(conf.maxValue/conf.levels))*100)+"%");
+               }
+               series = 0;
+
+               var axis = g.selectAll(".axis")
+               .data(allAxis)
+               .enter()
+               .append("g")
+               .attr("class", "axis");
+
+               axis.append("line")
+               .attr("x1", conf.w/2)
+               .attr("y1", conf.h/2)
+               .attr("x2", function(d, i){return conf.w/2*(1-conf.factor*Math.sin(i*conf.radians/total));})
+               .attr("y2", function(d, i){return conf.h/2*(1-conf.factor*Math.cos(i*conf.radians/total));})
+               .attr("class", "line")
+               .style("stroke", "grey")
+               .style("stroke-width", "1px");
+
+               axis.append("text")
+               .attr("class", "legend")
+               .text(function(d){return d})
+               .style("font-size", "11px")
+               .attr("text-anchor", "middle")
+               .attr("dy", "1.5em")
+               .attr("transform", function(d, i){return "translate(0, -10)"})
+               .attr("x", function(d, i){return conf.w/2*(1-conf.factorLegend*Math.sin(i*conf.radians/total))-60*Math.sin(i*conf.radians/total);})
+               .attr("y", function(d, i){return conf.h/2*(1-Math.cos(i*conf.radians/total))-20*Math.cos(i*conf.radians/total);});
+
+
+               d.forEach(function(y, x){
+                dataValues = [];
+                g.selectAll(".nodes")
+                .data(y, function(j, i){
+                    dataValues.push([
+                        conf.w/2*(1-(parseFloat(Math.max(j.value, 0))/conf.maxValue)*conf.factor*Math.sin(i*conf.radians/total)), 
+                        conf.h/2*(1-(parseFloat(Math.max(j.value, 0))/conf.maxValue)*conf.factor*Math.cos(i*conf.radians/total))
+                        ]);
+                });
+                dataValues.push(dataValues[0]);
+                g.selectAll(".area")
+                .data([dataValues])
+                .enter()
+                .append("polygon")
+                .attr("class", "radar-chart-serie"+series)
+                .style("stroke-width", "2px")
+                .style("stroke", conf.color(series))
+                .attr("points",function(d) {
+                    var str="";
+                    for(var pti=0;pti<d.length;pti++){
+                        str=str+d[pti][0]+","+d[pti][1]+" ";
+                    }
+                    return str;
+                })
+                .style("fill", function(j, i){return conf.color(series)})
+                .style("fill-opacity", conf.opacityArea)
+                .on('mouseover', function (d){
+                    z = "polygon."+d3.select(this).attr("class");
+                    g.selectAll("polygon")
+                    .transition(200)
+                    .style("fill-opacity", 0.1); 
+                    g.selectAll(z)
+                    .transition(200)
+                    .style("fill-opacity", .7);
+                })
+                .on('mouseout', function(){
+                    g.selectAll("polygon")
+                    .transition(200)
+                    .style("fill-opacity", conf.opacityArea);
+                });
+                series++;
+            });
+               series=0;
+
+
+               d.forEach(function(y, x){
+                g.selectAll(".nodes")
+                .data(y).enter()
+                .append("svg:circle")
+                .attr("class", "radar-chart-serie"+series)
+                .attr('r', conf.radius)
+                .attr("alt", function(j){return Math.max(j.value, 0)})
+                .attr("cx", function(j, i){
+                    dataValues.push([
+                        conf.w/2*(1-(parseFloat(Math.max(j.value, 0))/conf.maxValue)*conf.factor*Math.sin(i*conf.radians/total)), 
+                        conf.h/2*(1-(parseFloat(Math.max(j.value, 0))/conf.maxValue)*conf.factor*Math.cos(i*conf.radians/total))
+                        ]);
+                    return conf.w/2*(1-(Math.max(j.value, 0)/conf.maxValue)*conf.factor*Math.sin(i*conf.radians/total));
+                })
+                .attr("cy", function(j, i){
+                    return conf.h/2*(1-(Math.max(j.value, 0)/conf.maxValue)*conf.factor*Math.cos(i*conf.radians/total));
+                })
+                .attr("data-id", function(j){return j.axis})
+                .style("fill", conf.color(series)).style("fill-opacity", .9)
+                .on('mouseover', function (d){
+                    newX =  parseFloat(d3.select(this).attr('cx')) - 10;
+                    newY =  parseFloat(d3.select(this).attr('cy')) - 5;
+
+                    tooltip
+                    .attr('x', newX)
+                    .attr('y', newY)
+                    .text(f((d.value)*100)+"%")
+                    .transition(200)
+                    .style('opacity', 1);
+
+                    z = "polygon."+d3.select(this).attr("class");
+                    g.selectAll("polygon")
+                    .transition(200)
+                    .style("fill-opacity", 0.1); 
+                    g.selectAll(z)
+                    .transition(200)
+                    .style("fill-opacity", .7);
+                })
+                .on('mouseout', function(){
+                    tooltip
+                    .transition(200)
+                    .style('opacity', 0);
+                    g.selectAll("polygon")
+                    .transition(200)
+                    .style("fill-opacity", conf.opacityArea);
+                })
+                .append("svg:title")
+                .text(function(j){return Math.max(j.value, 0)});
+
+                series++;
+            });
+                //Tooltip
+                tooltip = g.append('text')
+                .style('opacity', 0)
+                .style('font-size', '13px');
+            }
+        };
+    </script> 
+</head>
+<style>
+@import url('https://fonts.googleapis.com/css?family=Raleway');
+
+body {
+  font-family: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+</style>
+<body onload="form.reset();">
+    <div class="container-fluid" align="center" style="font-size: 20px;">
+        <div class="row">
+            <div class="col-md-12">
+                <form id="form" name="form"><img src="Australian-Open-logo.jpg" alt="AO">Year Selection:
+                    <input type="radio" name="year" value="2004" checked/>2004
+                    <input type="radio" name="year" value="2005"/>2005
+                    <input type="radio" name="year" value="2006"/>2006
+                    <input type="radio" name="year" value="2007"/>2007
+                    <input type="radio" name="year" value="2008"/>2008
+                    <input type="radio" name="year" value="2009"/>2009
+                    <input type="radio" name="year" value="2010"/>2010
+                    <input type="radio" name="year" value="2011"/>2011
+                    <input type="radio" name="year" value="2012"/>2012
+                    <input type="radio" name="year" value="2013"/>2013
+                    <input type="radio" name="year" value="2014"/>2014
+                </form>
+            </div>
+        </div>
+
+    <div class="row" id="main" width="1000">
+        <div id="chart" class="col-md-12">
+             
+            <h1><i><strong>Presenting interactive statistical visualization of Australian Open from 2004 to 2014!</strong></i></h1><br/>
+            <p>Select any arc to visualise match statistics!</p>
+        </div>
+    </div>
+    <br><br>
+    <div class="row">
+        <div class="results col-md-12" style="font-size: 40px;"></div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <svg class="title1" width="600" height="100"></svg>
+            <svg class="barchart" width="600" height="600"></svg>
+        </div>
+        <div id="body" class="col-md-6">
+            <svg class="title2" width="600" height="100"></svg>
+            <div id="radar_chart" class="rad" width="600" height="600"></div>
+        </div>
+    </div></div>
+    <div class="row">
+        <div class="total_stats col-md-12" align="center" style="font-size: 28px;"></div>
+    </div>
+
+</body>
+
+<script>
+
+    // Variables
+    var width = 500;
+    var height = 500;
+    var radius = Math.min(width, height) / 2;
+    
+    var color = d3.scaleOrdinal().range(["#3957ff", "#d3fe14", "#c9080a", "#fec7f8", "#0b7b3e", "#0bf0e9", "#c203c8", "#fd9b39", "#888593", "#906407", "#98ba7f", "#fe6794", "#10b0ff", "#ac7bff", "#fee7c0", "#964c63", "#1da49c", "#0ad811", "#bbd9fd", "#fe6cfe", "#297192", "#d1a09c", "#78579e", "#81ffad", "#739400", "#ca6949", "#d9bf01", "#646a58", "#d5097e", "#bb73a9", "#ccf6e9", "#9cb4b6", "#b6a7d4", "#9e8c62", "#6e83c8", "#01af64", "#a71afd", "#cfe589", "#d4ccd1", "#fd4109", "#bf8f0e", "#2f786e", "#4ed1a5", "#d8bb7d", "#a54509", "#6a9276", "#a4777a", "#fc12c9", "#606f15", "#3cc4d9", "#f31c4e", "#73616f", "#f097c6", "#fc8772", "#92a6fe", "#875b44", "#699ab3", "#94bc19", "#7d5bf0", "#d24dfe", "#c85b74", "#68ff57", "#b62347"]);
+
+    var clicked=false;
+    // Create primary <g> element
+    var vis = d3.select("#chart").append("svg:svg")
+    .attr("width", width)
+    .attr("height", height)
+    .append("svg:g")
+    .attr("class","sunburst")
+    .attr("id", "container")
+    .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+    year="2004";
+    var str="Austrailian Open "+year;
+    vis.selectAll(".centerLabelText")
+    .data(str)
+    .enter()
+    .append("text")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr('text-anchor', 'middle')
+    .attr("class", "centerLabelText")
+    .text(str);
+
+    
+    d3.json("data2004.json", function(error, nodeData) {
+        if (error) throw error;
+        // Data strucure
+        var partition = d3.partition()
+        .size([2 * Math.PI, 150]);
+
+            // Find data root
+            var root = d3.hierarchy(nodeData)
+            .sum(function (d) { return d.size});
+
+            // Size arcs
+            partition(root);
+            var arc = d3.arc()
+            .startAngle(function (d) { return d.x0 })
+            .endAngle(function (d) { return d.x1 })
+            .innerRadius(function (d) { return d.y0+100 })
+            .outerRadius(function (d) { return d.y1+100 });
+            // Put it all together
+            vis.selectAll('path')
+            .data(root.descendants())
+            .enter().append('svg:g')
+            .attr("class","node").append('svg:path')
+            .attr("display", function (d) { return d.depth ? null : "none"; })
+            .attr("d", arc)
+            .style('stroke', '#fff')
+            .style("fill", function (d) { return color(d.data.player1); });
+            vis.selectAll('path')
+            .on("mouseover",function(d){
+                if(!clicked){
+                    vis.selectAll('path')
+                    .style("opacity", 0.4);
+                    d3.select(this).style("opacity",1);
+                    
+                    vis.selectAll('.centerLabelText').remove();
+                    vis.selectAll('.centerRound').remove();
+                    vis.selectAll('.centervs').remove();
+                    vis.selectAll('.centerPlayer1').remove();
+                    vis.selectAll('.centerPlayer2').remove();
+                    vis.selectAll('.centerResults').remove();
+                    var p1=d.data.player1
+                    var p2=d.data.player2
+                    var round=d.data.round
+                    vis.selectAll('.centerRound')
+                    .data(round)
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", -40)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centerRound")
+                    .text(round)
+
+                    vis.selectAll('.centerPlayer1')
+                    .data(p1)
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", -20)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centerPlayer1")
+                    .text(p1)
+
+                    vis.selectAll('.centervs')
+                    .data("vs")
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centervs")
+                    .text("vs")
+
+                    vis.selectAll('.centerPlayer2')
+                    .data(p2)
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", 20)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centerPlayer1")
+                    .text(p2)
+
+                    var str=d.data.results
+                    vis.selectAll('.centerResults')
+                    .data(str)
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", 40)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centerResults")
+                    .text(str)}
+                })
+            .on("mouseout",function(d){
+                if(!clicked){
+                    vis.selectAll('path').style("opacity",1);
+                    vis.selectAll('.centerRound').remove();
+                    vis.selectAll('.centervs').remove();
+                    vis.selectAll('.centerPlayer1').remove();
+                    vis.selectAll('.centerPlayer2').remove();
+                    vis.selectAll('.centerResults').remove();
+                    year="2004";
+                    var str="Austrailian Open "+year;
+                    vis.selectAll(".centerLabelText")
+                    .data(str)
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centerLabelText")
+                    .text(str);
+                }                
+                
+            })
+            .on("click",printStat)
+
+        });
+d3.selectAll('input').on("change", function(){
+    clicked=false;
+    vis.selectAll('path').style("opacity",1);
+    var form_value = d3.select('input[name="year"]:checked').node().value;
+    var str="data"+form_value+".json"
+    var s="Austrailian Open "+form_value;
+    vis.selectAll(".centerLabelText").remove();
+    vis.selectAll('.centerRound').remove();
+    vis.selectAll('.centervs').remove();            
+    vis.selectAll('.centerPlayer1').remove();
+    vis.selectAll('.centerPlayer2').remove();
+    vis.selectAll('.centerResults').remove();
+    $(".barchart").empty();
+    $(".rad").empty();
+    $(".results").empty();
+    $(".title1").empty();
+    $(".total_stats").empty();
+    $(".title2").empty();
+    vis.selectAll(".centerLabelText")
+    .data(s)
+    .enter()
+    .append("text")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr('text-anchor', 'middle')
+    .attr("class", "centerLabelText")
+    .text(s);
+    d3.json(str, function(error, nodeData) {
+        if (error) throw error;
+        // Data strucure
+        var partition = d3.partition()
+        .size([2 * Math.PI, 150]);
+
+            // Find data root
+            var root = d3.hierarchy(nodeData)
+            .sum(function (d) { return d.size});
+
+            // Size arcs
+            partition(root);
+            var arc = d3.arc()
+            .startAngle(function (d) { return d.x0 })
+            .endAngle(function (d) { return d.x1 })
+            .innerRadius(function (d) { return d.y0+100 })
+            .outerRadius(function (d) { return d.y1+100 });
+
+            // Put it all together
+            d3.selectAll('.node').remove();
+            vis.selectAll('g')
+            .data(root.descendants())
+            .enter().append('g')
+            .attr("class","node").append('path')
+            .attr("display", function (d) { return d.depth ? null : "none"; })
+            .attr("d", arc)
+            .style("opacity", 1)
+            .style('stroke', '#fff')
+            .style("fill", function (d) { return color(d.data.player1); });
+                //.text(function(d) { return d.data.results; });
+
+                vis.selectAll('path')
+                .on("mouseover",function(d){
+                  if(!clicked){
+                    vis.selectAll('path')
+                    .style("opacity", 0.4);
+                    d3.select(this).style("opacity",1);
+                    vis.selectAll('.centerLabelText').remove();
+                    vis.selectAll('.centerRound').remove();
+                    vis.selectAll('.centervs').remove();
+                    vis.selectAll('.centerPlayer1').remove();
+                    vis.selectAll('.centerPlayer2').remove();
+                    vis.selectAll('.centerResults').remove();
+                    var p1=d.data.player1
+                    var p2=d.data.player2
+                    var round=d.data.round
+                    vis.selectAll('.centerRound')
+                    .data(round)
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", -40)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centerRound")
+                    .text(round)
+
+                    vis.selectAll('.centerPlayer1')
+                    .data(p1)
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", -20)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centerPlayer1")
+                    .text(p1)
+
+                    vis.selectAll('.centervs')
+                    .data("vs")
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centervs")
+                    .text("vs")
+
+                    vis.selectAll('.centerPlayer2')
+                    .data(p2)
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", 20)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centerPlayer1")
+                    .text(p2)
+
+                    var str=d.data.results
+                    vis.selectAll('.centerResults')
+                    .data(str)
+                    .enter()
+                    .append("text")
+                    .attr("x", 0)
+                    .attr("y", 40)
+                    .attr('text-anchor', 'middle')
+                    .attr("class", "centerResults")
+                    .text(str)
+
+                }})
+                .on("mouseout",function(){
+                    if(!clicked){
+                        vis.selectAll('path').style("opacity",1);
+                        vis.selectAll('.centerRound').remove();
+                        vis.selectAll('.centervs').remove();
+                        vis.selectAll('.centerPlayer1').remove();
+                        vis.selectAll('.centerPlayer2').remove();
+                        vis.selectAll('.centerResults').remove();
+                        var str="Austrailian Open "+form_value;
+                        vis.selectAll(".centerLabelText")
+                        .data(str)
+                        .enter()
+                        .append("text")
+                        .attr("x", 0)
+                        .attr("y", 0)
+                        .attr('text-anchor', 'middle')
+                        .attr("class", "centerLabelText")
+                        .text(str);
+                    }})
+                .on("click",printStat);
+            });
+});
+function computeTextRotation(d) {
+    var angle = (d.x0 + d.x1) / Math.PI * 90;
+
+        // Avoid upside-down labels
+        return (angle < 120 || angle > 270) ? angle : angle + 180;  // labels as rims
+        //return (angle < 180) ? angle - 90 : angle + 90;  // labels as spokes
+    }
+    function printStat(d){
+        clicked=true;
+        vis.selectAll('.centerLabelText').remove();
+        vis.selectAll('.centerRound').remove();
+        vis.selectAll('.centervs').remove();
+        vis.selectAll('.centerPlayer1').remove();
+        vis.selectAll('.centerPlayer2').remove();
+        vis.selectAll('.centerResults').remove();
+        var p1=d.data.player1
+        var p2=d.data.player2
+        var round=d.data.round
+        vis.selectAll('.centerRound')
+        .data(round)
+        .enter()
+        .append("text")
+        .attr("x", 0)
+        .attr("y", -40)
+        .attr('text-anchor', 'middle')
+        .attr("class", "centerRound")
+        .text(round)
+
+        vis.selectAll('.centerPlayer1')
+        .data(p1)
+        .enter()
+        .append("text")
+        .attr("x", 0)
+        .attr("y", -20)
+        .attr('text-anchor', 'middle')
+        .attr("class", "centerPlayer1")
+        .text(p1)
+
+        vis.selectAll('.centervs')
+        .data("vs")
+        .enter()
+        .append("text")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr('text-anchor', 'middle')
+        .attr("class", "centervs")
+        .text("vs")
+
+        vis.selectAll('.centerPlayer2')
+        .data(p2)
+        .enter()
+        .append("text")
+        .attr("x", 0)
+        .attr("y", 20)
+        .attr('text-anchor', 'middle')
+        .attr("class", "centerPlayer1")
+        .text(p2)
+
+        var str=d.data.results
+        vis.selectAll('.centerResults')
+        .data(str)
+        .enter()
+        .append("text")
+        .attr("x", 0)
+        .attr("y", 40)
+        .attr('text-anchor', 'middle')
+        .attr("class", "centerResults")
+        .text(str)
+        vis.selectAll('path').style("opacity",0.4);
+        d3.select(this).style("opacity",1);
+        var name1=d.data.player1        
+        var name2=d.data.player2
+        var data1=new Object()
+        data1.Criteria="First Point Won %"
+        data1[name1]=parseInt(d.data.firstPointWon1,10)
+        data1[name2]=parseInt(d.data.firstPointWon2,10)
+        var data2=new Object()
+        data2.Criteria="Second Point Won %"
+        data2[name1]=parseInt(d.data.secPointWon1,10)
+        data2[name2]=parseInt(d.data.secPointWon2,10)
+        var data3=new Object()
+        data3.Criteria="Break Point %"
+        data3[name1]=parseInt(d.data.break1,10)
+        data3[name2]=parseInt(d.data.break2,10)
+        var data4=new Object()
+        data4.Criteria="Return %"
+        data4[name1]=parseInt(d.data.return1,10)
+        data4[name2]=parseInt(d.data.return2,10)
+        var data5=new Object()
+        data5.Criteria="Net Points Won %"
+        data5[name1]=parseInt(d.data.net1,10)
+        data5[name2]=parseInt(d.data.net2,10)
+        var data=[data1,data2,data3,data4,data5]
+        var columns=[name1,name2]
+        var data6=new Object()
+        data6.Criteria="Ace Percentage"
+        data6[name1]=d.data.ace1*100/d.data.winner1
+        data6[name2]=d.data.ace2*100/d.data.winner2
+        var data7=new Object()
+        //console.log(color(d.data.player1))
+        data7.Criteria="Double Faults"
+        data7[name1]=d.data.double1
+        data7[name2]=d.data.double2
+        var data8=new Object()
+        data8.Criteria="Winners Percentage"
+        data8[name1]=d.data.winner1*100/d.data.total1
+        data8[name2]=d.data.winner2*100/d.data.total2
+        var data9=new Object()
+        data9.Criteria="Errors Probability"
+        data9[name1]=d.data.error1*100/d.data.total1
+        data9[name2]=d.data.error2*100/d.data.total2
+        var data10=new Object()
+        data10.Criteria="Total Points"
+        data10[name1]=d.data.total1
+        data10[name2]=d.data.total2
+        data=[data6,data8,data9]
+        var svg1 = d3.select(".barchart"),
+        margin = {top: 20, right: 20, bottom: 30, left: 40},
+        width = +svg1.attr("width") - margin.left - margin.right,
+        height = +svg1.attr("height") - margin.top - margin.bottom-20;
+        
+        svg1.selectAll("*").remove();
+        d3.selectAll(".title1").append("text")
+        .attr("font-size", "20px")
+        .attr("width",600)
+        .attr("height",50)
+        .attr("x",50)
+        .attr("y",height-450)
+        .text("Exploring Ace Probability, Winners Ratio and Error Rate!");
+        g = svg1.append("g").attr("class","barchart_bars").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+        var x0 = d3.scaleBand()
+        .rangeRound([0, width])
+        .paddingInner(0.1);
+
+        var x1 = d3.scaleBand()
+        .padding(0.05);
+
+        var y = d3.scaleLinear()
+        .rangeRound([height, 0]);
+
+        var z = d3.scaleOrdinal()
+        .range([color(d.data.player1), color(d.data.player2)]);
+        var keys = columns;
+        var f = d3.format(".3f");
+        x0.domain(data.map(function(d) { return d.Criteria; }));
+        x1.domain(keys).rangeRound([0, x0.bandwidth()]);
+        y.domain([0, d3.max(data, function(d) { return d3.max(keys, function(key) { return d[key]; }); })+10]).nice();
+        
+        g.append("g")
+        .selectAll("g")
+        .data(data)
+        .enter().append("g")
+        .attr("transform", function(d) { return "translate(" + x0(d.Criteria) + ",0)"; })
+        .selectAll("rect")
+        .data(function(d) { return keys.map(function(key) { return {key: key, value: d[key]}; }); })
+        .enter().append("rect")
+        .attr("x", function(d) { return x1(d.key); })
+        .attr("y", function(d) { return y(d.value); })
+        .attr("width", x1.bandwidth())
+        .attr("height", function(d) { return height - y(d.value); })
+        .attr("fill", function(d) { return z(d.key); })
+        .on("mouseover",function(d){
+            d3.select(this).append("svg:title").text(function(d){ return f(d.value);});
+        });
+
+        g.append("g")
+        .attr("class", "axis")
+        .attr("transform", "translate(0," + height + ")")
+        .attr("font-size","11px")
+        .call(d3.axisBottom(x0))
+        
+
+        g.append("g")
+        .attr("class", "axis")
+        .call(d3.axisLeft(y))
+        .append("text")
+        .attr("x", 3)
+        .attr("y", y)
+        .attr("dy", "0.32em")
+        .attr("fill", "#000")
+        .attr("font-weight", "bold")
+        .attr("text-anchor", "start");
+        g.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0 - margin.left)
+        .attr("x",0 - (height / 2))
+        .attr("dy", "1em")
+        .attr("font-size", 11)
+        .style("text-anchor", "middle")
+        .text("Percentage ( % )");;
+        
+        //var svg2=d3.selectAll('.legend')
+        //svg2.selectAll(".legend").remove();
+        var LegendOptions = [name1,name2];
+        var legend = svg1.append("g")
+        .attr("font-size", 11)
+        .attr("text-anchor", "end")
+        .attr("class","legend")
+        .selectAll("g")
+        .data(keys.slice())
+        .enter().append("g")
+        .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+        legend.append("rect")
+        .attr("x", width+35)
+        .attr("y",20)
+        .attr("width", 19)
+        .attr("height", 19)
+        .attr("fill", z);
+        legend.append("text")
+        .attr("x", width+25)
+        .attr("y", 30)
+        .attr("font-size", "11px")
+        .attr("dy", "0.32em")
+        .text(function(d) { return d; });
+        // var ace=[d.data.ace1,d.data.ace2]
+        // var total=[d.data.total1,d.data.total2]
+        // var winners=[d.data.winner1,d.data.winner2]
+        // var errors=[d.data.error1,d.data.error2]
+        // var df=[d.data.double1,d.data.double2]
+        // var stat=[ace,df,winners,errors,total]
+        var stat=[data6,data7,data8,data9,data10]
+        //console.log(stat)
+        var w = 600,h = 600;
+
+        var colorscale = d3.scaleOrdinal().range([color(d.data.player1), color(d.data.player2)]);
+        var results=d.data.results;
+        var year=d.data.year;
+        var round=d.data.round;
+        var total1=d.data.total1;
+        var total2=d.data.total2;
+        if (round=="Fourth"){
+            round=round+" round duel";
+        }else if(round=="quarter" || round=="semi"){
+            r=round.charAt(0).toUpperCase() + round.slice(1);
+            r+=" finals";
+            round=r;
+        }
+
+        $(".results").empty();
+        $(".total_stats").empty();
+        d3.selectAll(".results").append("text")
+            .text(round+" of Austrailian Open "+year);
+        d3.selectAll(".results").append("text")
+            .text(" between "+name1+" and "+name2+"!");    
+        d3.selectAll(".results").append('br');
+        d3.selectAll(".results").append("text")
+            .text(results);
+        d3.selectAll(".results").append('br');
+        d3.selectAll(".total_stats").append("text")
+            .text("Total Points: "+name1+"- "+total1+" "+name2+"- "+total2);
+
+        
+//Legend titles
+var LegendOptions = [name1,name2];
+
+        //Data
+        var d = [
+        [
+        {axis:data1.Criteria,value:data1[name1]/100},
+        {axis:data2.Criteria,value:data2[name1]/100},
+        {axis:data3.Criteria,value:data3[name1]/100},
+        {axis:data4.Criteria,value:data4[name1]/100},
+        {axis:data5.Criteria,value:data5[name1]/100}
+        ],[
+        {axis:data1.Criteria,value:data1[name2]/100},
+        {axis:data2.Criteria,value:data2[name2]/100},
+        {axis:data3.Criteria,value:data3[name2]/100},
+        {axis:data4.Criteria,value:data4[name2]/100},
+        {axis:data5.Criteria,value:data5[name2]/100}
+        ]
+        ];
+        //console.log(colorscale)
+        //console.log(d)
+        //Options for the Radar chart, other than default
+        var config = {
+            w: w,
+            h: h,
+            maxValue: 0.6,
+            levels: 6,
+            ExtraWidthX: 300,
+            color: colorscale
+        }
+
+        //Call function to draw the Radar chart
+        //Will expect that data is in %'s
+        RadarChart.draw("#radar_chart", d, config);
+
+        ////////////////////////////////////////////
+        /////////// Initiate legend ////////////////
+        ////////////////////////////////////////////
+        d3.selectAll(".title2").append("text")
+        .attr("font-size", "20px")
+        .attr("width",600)
+        .attr("height",50)
+        .attr("x",49)
+        .attr("y",height-450)
+        .text("Service Stats, Net Points and Break Percentage Comparison.");
+        var svg = d3.select('#body')
+        .select('.rad')
+        .selectAll('svg')
+        //.select('#radar_chart')
+        .append('svg')
+        .attr("width", w+300)
+        .attr("height", h);
+
+        //Create the title for the legend
+        //Initiate Legend   
+        var legend = svg.append("g")
+        .attr("class", "legend")
+        .attr("height", 100)
+        .attr("width", 200)
+        .attr("text-anchor", "end")
+        .attr('transform', 'translate(90,20)') ;
+            //Create colour squares
+        legend.selectAll('rect')
+            .data(LegendOptions)
+            .enter()
+            .append("rect")
+            .attr("x", w+5)
+            .attr("y", function(d, i){ return i * 20;})
+            .attr("width", 19)
+            .attr("height", 19)
+            .style("fill", function(d, i){ return colorscale(i);});
+            //Create text next to squares
+        legend.selectAll('.legend')
+            .data(LegendOptions)
+            .enter()
+            .append("text")
+            .attr("x", w)
+            .attr("y", function(d, i){ return i * 20 + 9;})
+            .attr("dy", "0.32em")
+            .attr("font-size", "11px")
+            .text(function(d) { return d; });
+
+        }
+    </script>
